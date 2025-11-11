@@ -1,0 +1,260 @@
+'use client';
+
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
+import { useRef, useEffect, useState, FormEvent } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ChevronLeft, Send, Bot } from 'lucide-react';
+import { CaregiverProfileCard } from '@/components/CaregiverProfileCard';
+import { CaregiverProfile } from '@/db/types';
+
+export default function Chat() {
+  const params = useParams();
+  const router = useRouter();
+  const caregiverId = params.id as string;
+  
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      fetch: async (url, options) => {
+        const modifiedOptions = {
+          ...options,
+          body: JSON.stringify({
+            ...JSON.parse(options?.body as string || '{}'),
+            caregiverId: caregiverId,
+          }),
+        };
+        return fetch(url, modifiedOptions);
+      },
+    }),
+  });
+  const [input, setInput] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isLoading = status === 'submitted';
+  const isStreaming = status === 'streaming';
+
+  const [caregiver, setCaregiver] = useState<CaregiverProfile | null>(null);
+
+  // Count non-null fields, we don't show the profile when a new chat is started, only show the profile when there are at least 1 field filled
+  // This is to avoid showing the profile when a new chat is started and the profile is empty
+  const countNonNullFields = (profile: CaregiverProfile | null): number => {
+    if (!profile) return 0;
+    
+    let count = 0;
+    
+    if (profile.location) count++;
+    if (profile.profilePictureUrl) count++;
+    if (profile.startDate) count++;
+    if (profile.generalAvailability) count++;
+    if (profile.weeklyHours) count++;
+    if (profile.commuteDistance) count++;
+    if (profile.commuteType) count++;
+    if (profile.willDriveChildren) count++;
+    if (profile.accessibilityNeeds) count++;
+    if (profile.hourlyRate) count++;
+    if (profile.additionalChildRate) count++;
+    if (profile.payrollRequired) count++;
+    
+    if (profile.qualifications.length > 0) count++;
+    if (profile.languages.length > 0) count++;
+    if (profile.preferredAgeGroups.length > 0) count++;
+    if (profile.dietaryPreferences.length > 0) count++;
+    if (profile.responsibilities.length > 0) count++;
+    if (profile.benefitsRequired.length > 0) count++;
+    if (profile.careTypes.length > 0) count++;
+    
+    if (Object.keys(profile.yearsOfExperience).length > 0) count++;
+    
+    return count;
+  };
+
+  const fetchCaregiverData = async () => {
+    try {
+      const response = await fetch(`/api/caregivers/${caregiverId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCaregiver(data);
+      }
+    } catch (error) {
+      console.error('Error fetching caregiver data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchCaregiverData();
+    const interval = setInterval(fetchCaregiverData, 3000); // Poll every 3 seconds
+    return () => clearInterval(interval);
+  }, [caregiverId]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const shouldShowProfile = caregiver && countNonNullFields(caregiver) >= 1;
+
+  return (
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
+      {shouldShowProfile && (
+        <CaregiverProfileCard caregiver={caregiver} />
+      )}
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.push('/')}
+          className="fixed top-4 right-4 z-20 h-9 w-9 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+
+        <div className="flex-1 overflow-y-auto">
+        <div className={`${messages.length === 0 ? 'h-full flex items-center justify-center' : ''}`}>
+        <div className="w-full max-w-3xl mx-auto px-4 py-6">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center py-12">
+              <div className="mb-6 rounded-full bg-blue-500 p-6">
+                <Bot className="h-12 w-12 text-white" />
+              </div>
+              <h2 className="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
+                Let&apos;s Build Your Profile
+              </h2>
+              <p className="max-w-md text-gray-600 dark:text-gray-400">
+                Tell me about your experience, preferences, and what you&apos;re looking for in a caregiving position.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 pb-4 min-h-full">
+              {messages.map((message) => {
+                if (!message.parts || message.parts.length === 0) {
+                  return null;
+                }
+                
+                const textParts = message.parts.filter(part => part.type === 'text');
+                const toolParts = message.parts.filter(part => 
+                  part.type.startsWith('tool-') || part.type === 'dynamic-tool'
+                );
+                
+                return (
+                  <div key={message.id} className="space-y-2">
+                    {toolParts.map((part, index) => {
+                      const toolPart = part as any;
+                      return (
+                        <div key={`tool-${index}`} className="flex">
+                          <div className="max-w-[80%] rounded-lg px-3 py-2 text-center text-xs text-gray-700 dark:text-gray-300">
+                            <span className="font-medium">Assistant called {toolPart.toolName || part.type.replace('tool-', '')} tool</span>
+                            {toolPart.args && (
+                              <div className="mt-1 text-[11px] opacity-70">
+                                {JSON.stringify(toolPart.args)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    
+                    {textParts.length > 0 && (
+                      <div
+                        className={`flex items-end gap-2 ${
+                          message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                        }`}
+                      > 
+                        <div
+                          className={`group max-w-[75%] rounded-3xl px-4 py-3 ${
+                            message.role === 'user'
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-white text-gray-900 dark:bg-gray-800 dark:text-white border border-gray-200 dark:border-gray-700'
+                          }`}
+                        >
+                          {textParts.map((part, index) => (
+                            <div key={index} className="whitespace-pre-wrap text-[15px] leading-relaxed">
+                              {(part as any).text}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              
+              {isLoading && (
+                <div className="flex items-end gap-2">
+                  <Avatar className="h-8 w-8 border-2 border-gray-200 dark:border-gray-700">
+                    <AvatarFallback className="bg-linear-to-br from-blue-500 to-purple-600 text-white">
+                      <Bot className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="rounded-3xl bg-white px-5 py-4 shadow-sm dark:bg-gray-800">
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]"></div>
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]"></div>
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400"></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="border-t border-red-200 bg-red-50 px-4 py-3 dark:border-red-900 dark:bg-red-950">
+          <div className="mx-auto max-w-3xl">
+            <p className="text-sm text-red-800 dark:text-red-200">
+              <strong>Error:</strong> {error.message}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="sticky bottom-3 z-10">
+        <div className="flex justify-center">
+        <div className="w-full max-w-3xl px-4 py-3">
+          <form
+            onSubmit={(e: FormEvent) => {
+              e.preventDefault();
+              if (input.trim()) {
+                sendMessage({ text: input });
+                setInput('');
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            <div className="relative flex-1">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type your message..."
+                disabled={isLoading}
+                className="h-11 rounded-full border-gray-300 bg-white pr-12 text-base placeholder:text-gray-400 focus-visible:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 shadow-none"
+              />
+              {input.trim() && !isLoading && (
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="absolute right-1.5 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full bg-blue-500 hover:bg-blue-600"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </form>
+        </div>
+        </div>
+      </div>
+      </div>
+    </div>
+  );
+}
+
