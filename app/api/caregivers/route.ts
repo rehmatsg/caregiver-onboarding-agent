@@ -1,5 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createCaregiver } from '@/db/caregivers';
+import { createCaregiver, listAllCaregivers } from '@/db/caregivers';
+
+export async function GET() {
+  try {
+    const caregivers = await listAllCaregivers();
+    return NextResponse.json(caregivers);
+  } catch (error) {
+    console.error('Error fetching caregivers:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch caregivers' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST() {
   try {

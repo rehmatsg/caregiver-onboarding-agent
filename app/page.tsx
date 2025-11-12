@@ -1,50 +1,39 @@
-'use client';
+import { listAllCaregivers } from '@/db/caregivers';
+import { CaregiverGridCard } from '@/components/CaregiverGridCard';
+import { GetStartedButton } from '@/components/GetStartedButton';
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-
-export default function Home() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleGetStarted = async () => {
-    try {
-      setIsLoading(true);
-      // Create a new caregiver
-      const response = await fetch('/api/caregivers', {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create caregiver');
-      }
-
-      const data = await response.json();
-      // Navigate to chat page with the caregiver ID
-      router.push(`/chat/${data.id}`);
-    } catch (error) {
-      console.error('Error creating caregiver:', error);
-      alert('Failed to start. Please try again.');
-      setIsLoading(false);
-    }
-  };
+export default async function Home() {
+  const caregivers = await listAllCaregivers();
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-linear-to-b from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-black">
-      <div className="text-center">
-        <h1 className="mb-4 text-5xl font-bold text-zinc-900 dark:text-zinc-50">
-          Hi there!
-        </h1>
-        <p className="mb-8 text-lg text-zinc-600 dark:text-zinc-400">
-          I'll help you set up your caregiver profile
-        </p>
-        <button
-          onClick={handleGetStarted}
-          disabled={isLoading}
-          className="rounded-full bg-zinc-900 px-8 py-4 text-lg font-semibold text-white transition-all hover:bg-zinc-700 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:bg-zinc-900 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:disabled:hover:bg-zinc-50"
-        >
-          {isLoading ? 'Starting...' : 'Get Started'}
-        </button>
+    <div className="min-h-screen bg-linear-to-b from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-black">
+      <div className="container mx-auto px-4 py-12">
+        <div className="text-center mb-12">
+          <h1 className="mb-4 text-5xl font-bold text-zinc-900 dark:text-zinc-50">
+            Caregiver Profiles
+          </h1>
+          <p className="mb-8 text-lg text-zinc-600 dark:text-zinc-400">
+            Manage and view all your caregiver profiles
+          </p>
+          <GetStartedButton />
+        </div>
+
+        {caregivers.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-xl text-zinc-600 dark:text-zinc-400 mb-4">
+              No caregiver profiles yet
+            </p>
+            <p className="text-zinc-500 dark:text-zinc-500">
+              Click "Get Started" above to create your first profile
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {caregivers.map((caregiver) => (
+              <CaregiverGridCard key={caregiver.id} caregiver={caregiver} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
