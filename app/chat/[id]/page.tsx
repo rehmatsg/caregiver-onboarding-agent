@@ -292,7 +292,7 @@ export default function Chat() {
             </div>
           ) : (
             <div className="space-y-4 pb-4 min-h-full">
-              {messages.map((message) => {
+              {messages.map((message, messageIndex) => {
                 if (!message.parts || message.parts.length === 0) {
                   return null;
                 }
@@ -301,6 +301,8 @@ export default function Chat() {
                 const toolParts = message.parts.filter(part => 
                   part.type.startsWith('tool-') || part.type === 'dynamic-tool'
                 );
+                const reasoningParts = message.parts.filter(part => part.type === 'reasoning');
+                const isLastMessage = messageIndex === messages.length - 1;
                 
                 return (
                   <div key={message.id} className="space-y-2">
@@ -319,6 +321,13 @@ export default function Chat() {
                         </div>
                       );
                     })}
+                    
+                    {reasoningParts.length > 0 && isStreaming && isLastMessage && textParts.length === 0 && (
+                      <div className="flex items-center gap-2 mb-1">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500 dark:text-gray-400" />
+                        <span className="text-xs text-gray-600 dark:text-gray-400">Thinking...</span>
+                      </div>
+                    )}
                     
                     {textParts.length > 0 && (
                       <div className="space-y-1">

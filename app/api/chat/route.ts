@@ -243,6 +243,11 @@ export async function POST(req: Request) {
     model: openai('gpt-5'),
     system: systemPrompt,
     messages: convertToModelMessages(messages),
+    providerOptions: {
+      openai: {
+        reasoningEffort: 'minimal'
+      }
+    },
     stopWhen: stepCountIs(5),
     tools: {
       getCaregiverProfile: {
@@ -285,5 +290,7 @@ export async function POST(req: Request) {
     },
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse({
+    sendReasoning: true
+  });
 }
