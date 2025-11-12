@@ -6,8 +6,7 @@ import { useRef, useEffect, useState, FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ChevronLeft, Send, Bot, Mic, Loader2, X } from 'lucide-react';
+import { ChevronLeft, Send, Bot, Mic, Loader2, X, Copy, Check, Volume2, Square } from 'lucide-react';
 import { CaregiverProfileCard } from '@/components/CaregiverProfileCard';
 import { CaregiverProfile } from '@/db/types';
 import { useAudioRecording } from '@/lib/hooks/useAudioRecording';
@@ -43,6 +42,14 @@ export default function Chat() {
   // Speech-to-text states
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  
+  // Copy to clipboard state
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  
+  // Text-to-speech states
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
+  const [audioInstance, setAudioInstance] = useState<HTMLAudioElement | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   
   const {
     isRecording,
@@ -171,6 +178,87 @@ export default function Chat() {
 
   const shouldShowProfile = caregiver && countNonNullFields(caregiver) >= 1;
 
+  const handleCopyMessage = async (messageId: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMessageId(messageId);
+      setTimeout(() => {
+        setCopiedMessageId(null);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy text:', error);
+    }
+  };
+
+  const handleTextToSpeech = async (messageId: string, text: string) => {
+    // If this message is already playing, stop it
+    if (playingMessageId === messageId && audioInstance) {
+      audioInstance.pause();
+      audioInstance.currentTime = 0;
+      setPlayingMessageId(null);
+      setAudioInstance(null);
+      return;
+    }
+
+    // Stop any currently playing audio
+    if (audioInstance) {
+      audioInstance.pause();
+      audioInstance.currentTime = 0;
+      setAudioInstance(null);
+    }
+
+    setIsGeneratingAudio(true);
+
+    try {
+      const response = await fetch('/api/speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate speech');
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      audio.onended = () => {
+        setPlayingMessageId(null);
+        setAudioInstance(null);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.onerror = () => {
+        setPlayingMessageId(null);
+        setAudioInstance(null);
+        URL.revokeObjectURL(audioUrl);
+        console.error('Audio playback error');
+      };
+
+      setAudioInstance(audio);
+      setPlayingMessageId(messageId);
+      await audio.play();
+    } catch (error) {
+      console.error('Text-to-speech error:', error);
+      setPlayingMessageId(null);
+    } finally {
+      setIsGeneratingAudio(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (audioInstance) {
+        audioInstance.pause();
+        audioInstance.currentTime = 0;
+      }
+    };
+  }, [audioInstance]);
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
       {shouldShowProfile && (
@@ -233,24 +321,68 @@ export default function Chat() {
                     })}
                     
                     {textParts.length > 0 && (
-                      <div
-                        className={`flex items-end gap-2 ${
-                          message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                        }`}
-                      > 
+                      <div className="space-y-1">
                         <div
-                          className={`group max-w-[75%] rounded-3xl px-4 py-3 ${
-                            message.role === 'user'
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-white text-gray-900 dark:bg-gray-800 dark:text-white border border-gray-200 dark:border-gray-700'
+                          className={`flex items-end gap-2 ${
+                            message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                           }`}
-                        >
-                          {textParts.map((part, index) => (
-                            <div key={index} className="whitespace-pre-wrap text-[15px] leading-relaxed">
-                              {(part as any).text}
-                            </div>
-                          ))}
+                        > 
+                          <div
+                            className={`group max-w-[75%] rounded-3xl px-4 py-3 ${
+                              message.role === 'user'
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-white text-gray-900 dark:bg-gray-800 dark:text-white border border-gray-200 dark:border-gray-700'
+                            }`}
+                          >
+                            {textParts.map((part, index) => (
+                              <div key={index} className="whitespace-pre-wrap text-[15px] leading-relaxed">
+                                {(part as any).text}
+                              </div>
+                            ))}
+                          </div>
                         </div>
+                        
+                        {message.role === 'assistant' && (
+                          <div className="flex items-center gap-2 pl-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                const fullText = textParts
+                                  .map(part => (part as any).text)
+                                  .join('\n');
+                                handleCopyMessage(message.id, fullText);
+                              }}
+                              className="h-7 w-7 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                            >
+                              {copiedMessageId === message.id ? (
+                                <Check className="h-3.5 w-3.5" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                const fullText = textParts
+                                  .map(part => (part as any).text)
+                                  .join('\n');
+                                handleTextToSpeech(message.id, fullText);
+                              }}
+                              disabled={isGeneratingAudio}
+                              className="h-7 w-7 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 disabled:opacity-50"
+                            >
+                              {isGeneratingAudio ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : playingMessageId === message.id ? (
+                                <Square className="h-3.5 w-3.5" />
+                              ) : (
+                                <Volume2 className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
