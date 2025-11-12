@@ -136,7 +136,7 @@ export function CaregiverProfileCard({
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <CardTitle className="text-lg">Your Profile</CardTitle>
+                  <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Your Profile</CardTitle>
                   <div className="flex items-center gap-2 mt-2">
                     <span
                       className={cn(

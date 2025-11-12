@@ -7,9 +7,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ChevronLeft, Send, Bot } from 'lucide-react';
+import { ChevronLeft, Send, Bot, Mic, Loader2, X } from 'lucide-react';
 import { CaregiverProfileCard } from '@/components/CaregiverProfileCard';
 import { CaregiverProfile } from '@/db/types';
+import { useAudioRecording } from '@/lib/hooks/useAudioRecording';
+import { InlineWaveform } from '@/components/InlineWaveform';
 
 export default function Chat() {
   const params = useParams();
@@ -37,6 +39,21 @@ export default function Chat() {
   const isStreaming = status === 'streaming';
 
   const [caregiver, setCaregiver] = useState<CaregiverProfile | null>(null);
+  
+  // Speech-to-text states
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  
+  const {
+    isRecording,
+    audioBlob,
+    error: recordingError,
+    duration,
+    audioData,
+    startRecording,
+    stopRecording,
+    clearError,
+  } = useAudioRecording();
 
   // Count non-null fields, we don't show the profile when a new chat is started, only show the profile when there are at least 1 field filled
   // This is to avoid showing the profile when a new chat is started and the profile is empty
@@ -96,6 +113,61 @@ export default function Chat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    if (audioBlob && !isRecording) {
+      transcribeAudio(audioBlob);
+    }
+  }, [audioBlob, isRecording]);
+
+  // Handle recording errors
+  useEffect(() => {
+    if (recordingError) {
+      setTranscriptionError(recordingError);
+    }
+  }, [recordingError]);
+
+  const handleMicClick = async () => {
+    setTranscriptionError(null);
+    await startRecording();
+  };
+
+  const handleStopRecording = () => {
+    stopRecording();
+  };
+
+  const transcribeAudio = async (blob: Blob) => {
+    setIsTranscribing(true);
+    setTranscriptionError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', blob, 'recording.webm');
+
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to transcribe audio');
+      }
+
+      const data = await response.json();
+      
+      if (data.text) {
+        setInput(data.text);
+      }
+    } catch (error) {
+      console.error('Transcription error:', error);
+      setTranscriptionError(
+        error instanceof Error ? error.message : 'Failed to transcribe audio'
+      );
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
 
   const shouldShowProfile = caregiver && countNonNullFields(caregiver) >= 1;
 
@@ -187,12 +259,7 @@ export default function Chat() {
               
               {isLoading && (
                 <div className="flex items-end gap-2">
-                  <Avatar className="h-8 w-8 border-2 border-gray-200 dark:border-gray-700">
-                    <AvatarFallback className="bg-linear-to-br from-blue-500 to-purple-600 text-white">
-                      <Bot className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="rounded-3xl bg-white px-5 py-4 shadow-sm dark:bg-gray-800">
+                  <div className="rounded-3xl px-5 py-4 bg-white text-gray-900 dark:bg-gray-800 dark:text-white border border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-1.5">
                       <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]"></div>
                       <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]"></div>
@@ -218,6 +285,36 @@ export default function Chat() {
         </div>
       )}
 
+      {transcriptionError && (
+        <div className="border-t border-red-200 bg-red-50 px-4 py-3 dark:border-red-900 dark:bg-red-950 animate-in slide-in-from-top duration-300">
+          <div className="mx-auto max-w-3xl flex items-center justify-between">
+            <p className="text-sm text-red-800 dark:text-red-200">
+              <strong>Transcription Error:</strong> {transcriptionError}
+            </p>
+            <button
+              onClick={() => {
+                setTranscriptionError(null);
+                clearError();
+              }}
+              className="text-red-800 hover:text-red-900 dark:text-red-200 dark:hover:text-red-100 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {isTranscribing && (
+        <div className="border-t border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950 animate-in slide-in-from-top duration-300">
+          <div className="mx-auto max-w-3xl flex items-center gap-3">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              Transcribing your audio...
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="sticky bottom-3 z-10">
         <div className="flex justify-center">
         <div className="w-full max-w-3xl px-4 py-3">
@@ -231,24 +328,49 @@ export default function Chat() {
             }}
             className="flex items-center gap-2"
           >
-            <div className="relative flex-1">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Type your message..."
-                disabled={isLoading}
-                className="h-11 rounded-full border-gray-300 bg-white pr-12 text-base placeholder:text-gray-400 focus-visible:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 shadow-none"
+            {isRecording ? (
+              <InlineWaveform
+                audioData={audioData}
+                duration={duration}
+                onStop={handleStopRecording}
               />
-              {input.trim() && !isLoading && (
+            ) : (
+              <>
+                <div className="relative flex-1">
+                  <Input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Type your message..."
+                    disabled={isLoading || isTranscribing}
+                    className="h-11 rounded-full border-gray-300 bg-white pr-12 text-base placeholder:text-gray-400 focus-visible:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 shadow-none"
+                  />
+
+                  {input.trim() && !isLoading && !isTranscribing && (
+                    <Button
+                      type="submit"
+                      size="icon"
+                      className="absolute right-1.5 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full bg-blue-500 hover:bg-blue-600"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
                 <Button
-                  type="submit"
+                  type="button"
                   size="icon"
-                  className="absolute right-1.5 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full bg-blue-500 hover:bg-blue-600"
+                  onClick={handleMicClick}
+                  disabled={isLoading || isTranscribing}
+                  className="h-11 w-11 shrink-0 rounded-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 cursor-pointer"
                 >
-                  <Send className="h-4 w-4" />
+                  {isTranscribing ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  ) : (
+                    <Mic className="h-5 w-5 text-white" />
+                  )}
                 </Button>
-              )}
-            </div>
+              </>
+            )}
           </form>
         </div>
         </div>
