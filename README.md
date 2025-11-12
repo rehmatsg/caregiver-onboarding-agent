@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Caregiver Onboarding Agent
 
-## Getting Started
+An intelligent caregiver profile management system that uses conversational AI to create and manage caregiver profiles. Features voice input, real-time transcription, and text-to-speech capabilities.
 
-First, run the development server:
+## Features
+
+- Natural conversational interface using GPT-5 to collect caregiver information
+- Record audio responses that are automatically transcribed using OpenAI Whisper
+- Listen to AI responses with integrated TTS playback
+- View, edit, and delete caregiver profiles
+- SQLite-based data storage with Drizzle ORM
+- Responsive design with Tailwind CSS
+- Test suite with Vitest
+
+## Tech Stack
+
+- **Frontend:** Next.js (App Router), React, TypeScript, Tailwind CSS
+- **AI:** OpenAI (GPT-5 for chat + tools, Whisper for STT, TTS for playback), via Vercel AI SDK
+- **Data layer:** SQLite + Drizzle ORM
+- **Runtime:** Node.js
+- **Testing:** Vitest
+
+## Prerequisites
+
+- Node.js 20+ (LTS recommended)
+- npm or yarn package manager
+- OpenAI API key
+
+## Quick Setup
+
+1. **Clone the repository and install dependencies:**
+
+```bash
+npm install
+```
+
+2. **Set up environment variables:**
+
+Create a `.env.local` file in the root directory:
+
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+3. **Initialize the database:**
+
+The database will be automatically created when you run the development server. Optionally, you can use Drizzle commands:
+
+```bash
+# Generate migrations
+npm run db:generate
+
+# Push schema to database
+npm run db:push
+
+# Open Drizzle Studio (database GUI)
+npm run db:studio
+```
+
+4. **Start the development server:**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. **Open your browser:**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Navigate to [http://localhost:3000](http://localhost:3000)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## AI Usage Disclosure
 
-## Learn More
+- ChatGPT (GPT-5) used to generate this README file
+- System prompt generation for the agent based on the instructions in the email
+- Cursor (Sonnet 4.5) used to generate unit tests for database-related functions
+- Cursor used to generate the UI for speech-to-text bubble
+- Cursor Agent to clean up Tailwind classes and minor code improvements
 
-To learn more about Next.js, take a look at the following resources:
+## AI Models Used
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Task              | Model     | Purpose                                     |
+| ----------------- | --------- | ------------------------------------------- |
+| Chat + tool calls | GPT-5     | Conversational logic and structured updates |
+| Speech-to-text    | whisper-1 | Real-time transcription of voice input      |
+| Text-to-speech    | tts-1     | Playback of assistant messages              |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The Vercel AI SDK handles all AI interactions — chat, transcription, and text-to-speech — making it easy to swap or upgrade models without changing the app’s logic.
 
-## Deploy on Vercel
+## Demo
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+[Watch the demo video](./public/demo-video.mov)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Conversational Profile Setup
+
+![Screenshot 1](./public/screenshot-1.png)
+
+### Profile Summary and Completion
+
+![Screenshot 2](./public/screenshot-2.png)
+
+### Voice Input Recording
+
+![Screenshot 3](./public/screenshot-3.png)
