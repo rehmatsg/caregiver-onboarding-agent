@@ -49,22 +49,23 @@ export function CaregiverProfileCard({
   const completionPercentage = calculateCompletion();
 
   const getStatusInfo = (): { label: string; className: string } => {
-    if (completionPercentage === 100) {
-      return {
-        label: 'Complete',
-        className: 'bg-green-100 text-green-800 border-green-200',
-      };
+    switch (caregiver.status) {
+      case 'complete':
+        return {
+          label: 'Complete',
+          className: 'bg-green-100 text-green-800 border-green-200',
+        };
+      case 'in_progress':
+        return {
+          label: 'In Progress',
+          className: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+        };
+      default:
+        return {
+          label: 'In Progress',
+          className: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+        };
     }
-    if (completionPercentage >= 80) {
-      return {
-        label: 'Nearly Complete',
-        className: 'bg-blue-100 text-blue-800 border-blue-200',
-      };
-    }
-    return {
-      label: 'In Progress',
-      className: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    };
   };
 
   const statusInfo = getStatusInfo();

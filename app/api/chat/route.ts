@@ -23,6 +23,8 @@ Acknowledge what the caregiver said before asking anything new.
 
 Confirm inferred details softly: "Sounds like weekdays 9-5, did I get that right?"
 
+You are interacting through a chat interface. You do not have access to markdown rendering or other formatting options. Your messages must be plain text.
+
 No corporate or robotic tone.
 
 Never ask multiple unrelated questions at once.
@@ -83,7 +85,7 @@ Stop Condition Rules
 
 You must end the interview when any of these are true:
 
-A. All critical fields are filled AND the profile is ≥80% complete,
+A. All critical fields are filled AND the profile is ≥80% complete. In this case, update the status to 'complete' and then inform the user that the profile is complete.
 
 OR
 
@@ -100,6 +102,8 @@ B. The user signals fatigue, e.g.:
 When stopping, you must:
 
 Send a short, warm recap of what you captured.
+
+If the user requests the chat to be ended, update the status to 'complete' if all critical fields are filled.
 
 If one major field is missing (like hourlyRate), gently ask once more.
 
@@ -236,7 +240,7 @@ export async function POST(req: Request) {
   const systemPrompt = createSystemPrompt(caregiver);
 
   const result = streamText({
-    model: openai('gpt-4o'), // 4o has a more natural tone compared to GPT-5
+    model: openai('gpt-5'),
     system: systemPrompt,
     messages: convertToModelMessages(messages),
     stopWhen: stepCountIs(5),
@@ -271,7 +275,7 @@ export async function POST(req: Request) {
           hourlyRate: z.string().optional().describe('Desired hourly rate'),
           additionalChildRate: z.string().optional().describe('Rate for additional children'),
           payrollRequired: z.string().optional().describe('Whether payroll is required'),
-          status: z.string().optional().describe('Profile status (e.g., "in_progress", "completed")'),
+          status: z.string().optional().describe('Profile status (e.g., "in_progress", "complete")'),
         }),
         execute: async (updates) => {
           const updated = await updateCaregiver(caregiverId, updates);

@@ -90,10 +90,10 @@ describe('Caregiver Database Operations', () => {
       const caregiver = await createCaregiver();
       
       const updated = await updateCaregiver(caregiver.id, {
-        status: 'completed',
+        status: 'complete',
       });
 
-      expect(updated?.status).toBe('completed');
+      expect(updated?.status).toBe('complete');
     });
 
     it('should update profilePictureUrl', async () => {
@@ -378,7 +378,7 @@ describe('Caregiver Database Operations', () => {
       
       const updated = await updateCaregiver(caregiver.id, {
         location: 'Los Angeles, CA',
-        status: 'completed',
+        status: 'complete',
         qualifications: ['CPR', 'First Aid'],
         languages: ['English', 'Spanish'],
         yearsOfExperience: {
@@ -389,7 +389,7 @@ describe('Caregiver Database Operations', () => {
       });
 
       expect(updated?.location).toBe('Los Angeles, CA');
-      expect(updated?.status).toBe('completed');
+      expect(updated?.status).toBe('complete');
       expect(updated?.qualifications).toEqual(['CPR', 'First Aid']);
       expect(updated?.languages).toEqual(['English', 'Spanish']);
       expect(updated?.yearsOfExperience).toEqual({
@@ -509,12 +509,12 @@ describe('Caregiver Database Operations', () => {
         preferredAgeGroups: ['infant', 'toddler'],
         careTypes: ['full-time'],
         hourlyRate: '$28',
-        status: 'completed',
+        status: 'complete',
       });
       
       // Verify final state
       const final = await getCaregiverById(caregiver.id);
-      expect(final?.status).toBe('completed');
+      expect(final?.status).toBe('complete');
       expect(final?.location).toBe('Seattle, WA');
       expect(final?.qualifications).toEqual(['CPR', 'First Aid']);
       expect(final?.languages).toEqual(['English', 'Spanish']);
